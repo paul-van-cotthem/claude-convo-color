@@ -1,0 +1,13 @@
+{
+  "name": "convo-color",
+  "description": "Sets the colour behind the conversation in the Claude desktop app, Code tab.",
+  "owner": {
+    "name": "paul-van-cotthem"
+  },
+  "plugins": [
+    {
+      "name": "convo-color",
+      "source": "./"
+    }
+  ]
+}
