@@ -4,7 +4,7 @@ A small add-on (a mod) for Claude, the AI assistant from Anthropic. It works in 
 
 convo-color is an independent project. It is not made, endorsed or supported by Anthropic.
 
-![The colour picker in a light window: the buttons Light mode and Dark mode, the lines Background and LLM model each with Show and Reset, a field marked Hex code or name with Set, Close, the link Convo Color Help and the version, six lines of light colour swatches, and under the picker a violet row that says Fable](docs/picker-light.png)
+![The colour picker in a light window: the buttons Light mode and Dark mode, the lines Session color and LLM bar color each with Show and Reset, a field marked Hex code or name with Set, the buttons Apply to session and Apply to folder, six lines of light colour swatches with the line This session follows the folder colour under them, then the version, the link Help and the button Close, and under the picker a violet row that says Fable](docs/picker-light.png)
 
 *The picker that `/convo-color` opens above the prompt box, here in a light window. The row under it is the model row, here for Fable.*
 
@@ -31,9 +31,9 @@ Two other things change with the conversation colour:
 
 **Windows users:** the instructions for Windows are at the bottom of this page, in [On Windows](#on-windows). The add-on is reported to work on Windows.
 
-![The same colour picker in a dark window, on its Dark mode set of five lines of deep colour swatches, with Background chosen and an orange row under it that says Opus](docs/picker-dark.png)
+![The same colour picker in a dark window, on its Dark mode set of five lines of deep colour swatches, with Session color chosen, a line under the swatches that says Preview: Slate 700 (#314158). Not applied yet, and under the picker a violet row that says Fable](docs/picker-dark.png)
 
-*The same picker in a dark window, on the Dark mode set, with the model row for Opus under it.*
+*The same picker in a dark window, on the Dark mode set, with a colour previewed and not applied yet. The row under it is the model row for Fable.*
 
 > [!IMPORTANT]
 > **Requirements: check all of this before you paste the install line.** If one point is not true, the install or the add-on fails.
