@@ -298,20 +298,23 @@ test('the radio-style buttons switch between colouring the window and colouring 
   expect(keys.indexOf('show-window')).toBeLessThan(keys.indexOf('reset-window'))
   expect(keys.indexOf('reset-window')).toBeLessThan(keys.indexOf('target-row'))
   expect(keys.indexOf('reset-row')).toBeLessThan(keys.indexOf('close'))
-  expect(words((await ui.find({ type: 'Button', key: 'target-window' }))?.props.label)).toBe('◉ Background')
-  // LLM model is 13 half-wide spaces long and two hair spaces, so the three radio buttons come out as wide as each other.
+  expect(words((await ui.find({ type: 'Button', key: 'target-window' }))?.props.label)).toBe('◉ Session color')
+  // LLM bar color is the longest radio label and has no padding, so the radio buttons come out as wide as each other.
   expect(String((await ui.find({ type: 'Button', key: 'target-row' }))?.props.label).length).toBe(15)
-  expect(words((await ui.find({ type: 'Button', key: 'target-row' }))?.props.label)).toBe('○ LLM model')
+  expect(words((await ui.find({ type: 'Button', key: 'target-row' }))?.props.label)).toBe('○ LLM bar color')
 
   await ui.press({ key: 'target-row' })
-  expect(words((await ui.find({ type: 'Button', key: 'target-window' }))?.props.label)).toBe('○ Background')
-  expect(words((await ui.find({ type: 'Button', key: 'target-row' }))?.props.label)).toBe('◉ LLM model')
+  expect(words((await ui.find({ type: 'Button', key: 'target-window' }))?.props.label)).toBe('○ Session color')
+  expect(words((await ui.find({ type: 'Button', key: 'target-row' }))?.props.label)).toBe('◉ LLM bar color')
 
-  // A press on a colour now colours the row, not the window.
+  // A press on a colour now previews it on the row, not on the window, and keeps nothing until Apply.
   const before = themeCalls.length
 
   await ui.press({ key: 'red-300' })
   expect(themeCalls.length).toBe(before)
+  expect(JSON.stringify(storeSets)).not.toContain('ffa2a2')
+  expect((await ui.find({ type: 'Box', key: 'model-row-view' }))?.props.backgroundColor).toBe('#ffa2a2')
+  await ui.press({ key: 'apply' })
   expect(JSON.stringify(storeSets.at(-1))).toContain('ffa2a2')
 
   await closePicker(ui)
@@ -326,8 +329,9 @@ test('a new family can take the colour of an older one with one press', async ($
   await setUp(on, $, { value: 'claude-krokus-1-0' })
   const ui = await pickerOnRow($)
 
-  // Orange 300 is in the light set, and the new family takes it.
+  // Orange 300 is in the light set, and the new family takes it once it is applied.
   await ui.press({ key: 'orange-300' })
+  await ui.press({ key: 'apply' })
   await closePicker(ui)
 
   expect(await rowShown($)).toEqual({ tint: '#ffb86a', text: expect.stringContaining('Krokus') })
@@ -397,7 +401,7 @@ test('closing the picker sets it back to colouring the window', async ($, on) =>
   await closePicker(ui)
   const again = await openPicker($)
 
-  expect(words((await again.find({ type: 'Button', key: 'target-window' }))?.props.label)).toBe('◉ Background')
+  expect(words((await again.find({ type: 'Button', key: 'target-window' }))?.props.label)).toBe('◉ Session color')
   await again.unmount()
 })
 
@@ -422,7 +426,7 @@ test('the grid opens on the set of the colour being edited, and the Light and Da
   await ui.unmount()
 })
 
-test('Show turns the background off and back on, and Reset brings back the colour the window had when the picker opened', async ($, on) => {
+test('Show turns the background off and back on, and Reset drops a pressed colour and returns to the latest colour in a folder with no folder colour', async ($, on) => {
   const store = new Map<string, unknown>([['colour', '#a3c4dc']])
   const { themeCalls } = await setUp(on, $, { value: 'claude-opus-5-5' }, Object.fromEntries(store))
   const ui = await openPicker($)
@@ -442,14 +446,18 @@ test('Show turns the background off and back on, and Reset brings back the colou
   await ui.unmount()
 })
 
-test('a press on a colour of the row switches the row on again if it was off', async ($, on) => {
+test('applying a colour of the row switches the row on again if it was off', async ($, on) => {
   await setUp(on, $, { value: 'claude-opus-5-5' })
   const ui = await openPicker($)
 
   await ui.press({ key: 'show-row' })
   expect((await ui.find({ type: 'Button', key: 'show-row' }))?.props.label).toBe('☐ Show')
   await ui.press({ key: 'target-row' })
+  // A pressed colour is shown on the row even while the row is off, so there is something to look at. It is not kept yet.
   await ui.press({ key: 'red-300' })
+  expect((await ui.find({ type: 'Button', key: 'show-row' }))?.props.label).toBe('☐ Show')
+  expect((await ui.find({ type: 'Box', key: 'model-row-view' }))?.props.backgroundColor).toBe('#ffa2a2')
+  await ui.press({ key: 'apply' })
   expect((await ui.find({ type: 'Button', key: 'show-row' }))?.props.label).toBe('☑ Show')
   expect((await ui.find({ type: 'Box', key: 'model-row-view' }))?.props.backgroundColor).toBe('#ffa2a2')
   await ui.unmount()

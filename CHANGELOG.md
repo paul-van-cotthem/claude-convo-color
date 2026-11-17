@@ -2,6 +2,35 @@
 
 What changed in each version of convo-color, newest first.
 
+## [0.7.0] - 2026-11-17
+
+If you have version 0.6.1, the buttons of the picker work differently after this update: a press on a colour now only previews it. This is listed under Changed.
+
+### Added
+
+- **A colour for each folder.** With **Session color** chosen in the picker, press a colour, then **Apply to folder**. Every session in that folder then shows it. A new session in the folder starts with it, and a session that follows the folder takes up a change at its next message. A folder is a git repository with all its worktrees, or, outside git, the exact folder. A message names the folder.
+- **A colour for one session.** **Apply to session**, a colour typed in the field and `/convo-color f5eedc` give the session a colour of its own, which it keeps whatever the folder colour becomes. **Reset** next to **Session color** makes the session follow its folder again.
+- A line under the field names the previewed colour, or says whether the session follows the folder, has its own colour or has its background off.
+- The folder colours are saved on your computer. The README says so under what it reads, sends and runs.
+
+### Changed
+
+- **A press on a colour only previews it** in this session. **Apply to session** or **Apply to folder** keeps it. **Close** without applying puts back the colour the session had. With **LLM bar color** chosen there is one button, **Apply**.
+- **The two buttons are renamed.** **Background** is now **Session color** and **LLM model** is now **LLM bar color**.
+- The **Show** tick boxes act at once and are the session's own choice. Where a folder has a folder colour, they and `/convo-color off` change this session only. In a folder with no folder colour they work as before: the choice is kept for new sessions.
+- A colour typed in the field applies at once, to this session.
+- **Reset** next to **Session color** now drops a preview and makes the session follow its folder. It no longer brings back the colour the window had when the picker opened.
+- **Apply to folder** never changes the colours of the model rows, which stay the same in every folder.
+- **Close** stands at the right edge of the colours when the conversation is wide enough for them to stand beside the controls, and in the line of the Apply buttons otherwise.
+- The link under the colours reads **Help** instead of **Convo Color Help**. It is still a plain link and opens the same page. The bottom line reads the version, **Help**, **Close**.
+- The picker has a line under the field and an Apply row, so it is a little taller than in 0.6.1. It is no wider.
+
+### Not changed
+
+- The outlines of the app's own buttons and of the text field are still faint. The app draws them and the add-on cannot change them. The colour patches stay 22 pixels tall and 18 wide, as in 0.6.1.
+
+There is no button or command that removes a folder colour. To change one, apply another colour. To have none, untick **Show** next to **Session color** and press **Apply to folder**.
+
 ## [0.6.1] - 2026-11-17
 
 If you have version 0.5.2, three things work differently after this update: the colour names you can type, the Off button, and what a new session starts with. They are listed under Changed and Removed.

@@ -36,6 +36,15 @@ const TARGET = atom({ plugin: 'convo-color', key: 'target' } as const, 'window' 
 const SET_CHOICE = atom({ plugin: 'convo-color', key: 'set' } as const, null as 'light' | 'dark' | null)
 // Whether the background colour is shown. It follows the typed /convo-color off, the picker's Show button and any colour chosen.
 const BACKGROUND_ON = atom({ plugin: 'convo-color', key: 'background-on' } as const, true)
+// The session's own colour: six hex digits, or 'off', or null while it has none and follows its folder. These session values are held by the app,
+// so they outlive a reload of the add-on, which the module's own variables do not. A session opened again later starts with none.
+const OWN = atom({ plugin: 'convo-color', key: 'own' } as const, null as string | null)
+// Whether the session chose its Show model row switch itself: true for on, false for off, null while it follows its folder.
+const OWN_ROW = atom({ plugin: 'convo-color', key: 'own-row' } as const, null as boolean | null)
+// The folder entry the session last drew from, written "colour|background|row". A different entry in the store means the folder changed.
+const DRAWN_FROM = atom({ plugin: 'convo-color', key: 'drawn-from' } as const, null as string | null)
+// A colour pressed in the picker and not applied yet. Nothing is stored for it, and closing the picker drops it.
+const PREVIEW = atom({ plugin: 'convo-color', key: 'preview' } as const, null as { hex: string; name: string } | null)
 
 // The colour palette: the default colours of Tailwind CSS (version 4.3, https://tailwindcss.com/docs/colors), 26 families in 11 shades each, one
 // line to a shade (50 to 950), the families side by side in Tailwind's own order. Tailwind gives the colours in OKLCH, so the hex digits here are
@@ -69,9 +78,11 @@ const LINE_LENGTH = 17
 const FAMILIES = 26
 // The width of one line of patches, in character cells. A cell is about 9 pixels wide in the desktop app (measured there). The 17
 // patches of a line share this width equally with no gap between them, so each is about 18 pixels and the line is about 312 pixels. It was 51 cells
-// (patches of 27 pixels). It is narrower so that the picker still fits when the conversation is narrowed.
+// (patches of 27 pixels) in an earlier version. It is narrower so that the picker still fits when the conversation is narrowed.
 const LINE_WIDTH = 34
-// The width a patch starts from, in character cells, before it grows to its share of the line.
+// The width a patch starts from, in character cells, before it grows to its share of the line. A patch is about 18 pixels wide and 22 pixels tall, the height of
+// a line of the app. It is not a square. A patch as short as it is wide was not built: the engine accepts a fractional height for a Box, but how the app draws it was
+// not measured, so the height stays that of the line.
 const SWATCH_WIDTH = 2
 // The key of a patch, from its name: "Red 500" becomes "red-500".
 function slug(name: string): string {
@@ -111,9 +122,9 @@ function setLines(set: Scheme): ReadonlyArray<ReadonlyArray<Patch>> {
 const SWATCH_ROOM = '\u2002'
 // The labels of the radio-style buttons and of Show, Reset and Set are padded with half-wide spaces to the same length, since a button
 // takes the width of its text. The longest radio label is "◉ Light mode", and Show is "☑ Show".
-const RADIO_LENGTH = 13
+const RADIO_LENGTH = 15
 // Light mode and Dark mode are padded further, to the pixel widths measured in a screenshot (one half-wide space about 7.5 pixels):
-// Light mode to the width of Background, and Dark mode to the right edge of Reset, which it stands over together with Show.
+// Light mode to the width of the radio buttons, and Dark mode to the right edge of Reset, which it stands over together with Show.
 const LIGHT_LENGTH = 14
 const DARK_LENGTH = 17
 const SHOW_LENGTH = 6
@@ -122,14 +133,30 @@ const SHOW_LENGTH = 6
 const RESET_LENGTH = 7
 // Set is the field's own button: 8 half-wide spaces long makes it 79 pixels wide, as wide as Reset (72 at length 7, measured in the desktop app).
 const SET_LENGTH = 8
+// Measured in the desktop app: with 4 half-wide spaces and 15 hair spaces Set came out 84 pixels wide, against 79 for Reset, so Set has four hair spaces fewer than that.
+const SET_EXTRA_HAIRS = -1
 // A hair space (U+200A) is finer than a half-wide space, about 1.4 pixels against 7.2 by my estimate from the same screenshot. A few of them close the
-// last pixels between buttons (measured in an enlarged screenshot, 4.68 times life size): Background came out 1 pixel and
-// LLM model 2 pixels narrower than Light mode.
+// last pixels between buttons (measured in an enlarged screenshot, 4.68 times life size) for the old labels Background and LLM model. The labels
+// Session color and LLM bar color were then sized from the glyph widths of the same font, not measured in the app.
 const FINE_ROOM = '\u200a'
 const BACKGROUND_FINE = 1
-const MODEL_FINE = 2
+const MODEL_FINE = 0
+// Measured in two screenshots of the desktop app: LLM bar color, the longest radio label, has no padding, and Light mode and Session color are padded with hair spaces up to its width
+// (a hair space is about 0.6 to 0.8 pixels). The three come out 139 pixels wide, so the gap before Show is 8 pixels, as between Show and Reset. Too many hair spaces clip the label, with an ellipsis.
+const LIGHT_FINE = 1
 function padLabel(text: string, length: number, fine = 0): string {
   return text + SWATCH_ROOM.repeat(Math.max(0, length - text.length)) + FINE_ROOM.repeat(fine)
+}
+// A label with its words in the middle of the button: the same room as padLabel gives, split over both sides. A half-wide space is about 12 hair spaces
+// (measured in the desktop app: the Set button was 149 screenshot pixels wide with four half-wide and five hair spaces, 187 with four and 27, and 161, as wide as Reset, needs
+// four and 12), so the room is counted in hair spaces and the two sides differ by one hair space at most.
+const HAIRS_IN_ROOM = 12
+function centreLabel(text: string, length: number, extraHairs = 0): string {
+  const hairs = Math.max(0, length - text.length) * HAIRS_IN_ROOM + extraHairs
+  const left = Math.floor(hairs / 2)
+  const side = (count: number) => SWATCH_ROOM.repeat(Math.floor(count / HAIRS_IN_ROOM)) + FINE_ROOM.repeat(count % HAIRS_IN_ROOM)
+
+  return side(left) + text + side(hairs - left)
 }
 // The picker's controls stand in three columns of fixed width, in character cells (a cell is about 9 pixels in the desktop app, measured in
 // a screenshot), so that a button's own width cannot push the next one out of line: the radio buttons stand in the first
@@ -137,11 +164,14 @@ function padLabel(text: string, length: number, fine = 0): string {
 // The first column is 16.25 cells (149 pixels), so the gap after the radio buttons is the same 12 pixels as the gap after Show (measured in the desktop app: the radio
 // buttons are 137 pixels wide and Show 79 in a column of 91). It was 15 cells, which left 2 pixels and set Light mode against Dark mode.
 // The gaps and padding are as small as they can be, so that the picker fits when the conversation is narrowed, and the buttons
-// cannot be narrower than their words. The gaps are now about 6 pixels instead of 12 or 13: column one is 15.6 cells (143 pixels for buttons of 137) and
+// cannot be narrower than their words. The gaps are now about 6 pixels instead of 12 or 13: column one was 15.6 cells and is 16 since the longer labels Session color and LLM bar color (143 pixels for buttons of 137) and
 // column two 9.25 cells (85 pixels for Show of 79). Dark mode is one half-wide space shorter, since it spans Show, the gap and Reset (79 + 6 + 79 = 164 pixels).
-const COLUMN_ONE = 15.6
+const COLUMN_ONE = 16
 const COLUMN_TWO = 9.25
 const COLUMN_THREE = 9
+// The width in cells from which the controls and the colours stand side by side: both columns and the gap between them (0.5 cell), and a cell of room.
+// Narrower than that the colours drop under the controls. The engine tells the width the picker is laid out in, and the desktop app fills it with the width of the conversation.
+const SIDE_BY_SIDE_FROM = COLUMN_ONE + COLUMN_TWO + COLUMN_THREE + LINE_WIDTH + 1.5
 // The page the picker's Help link opens: the project's page on GitHub, which shows the README, the add-on's one page
 // of instructions. The address has no #readme at its end.
 const HELP_URL = 'https://github.com/paul-van-cotthem/claude-convo-color'
@@ -155,7 +185,7 @@ const UPDATE_SCRIPT =
 const UPDATE_BY_HAND = 'claude plugin marketplace update convo-color, then claude plugin update convo-color@convo-color'
 const VERSION = /^\d+\.\d+\.\d+$/
 // The version of this copy. It is written here, not read from a file, and must match the version in .claude-plugin/plugin.json. No test checks this, so change both together.
-const INSTALLED_VERSION = '0.6.1'
+const INSTALLED_VERSION = '0.7.0'
 
 // What the update check needs from the engine.
 type UpdateTools = {
@@ -496,87 +526,129 @@ function scene(hex: string, scheme: Scheme): string {
 // The scene's name carries the colour, so a new colour is a new scene and the app draws it again.
 // The glass barely tints, so the strip behind the prompt box takes the colour and the sidebar keeps its own look.
 // The veil is white over a pale colour and black over a deep one, so it never pulls the colour toward the wrong end.
-// The theme is written out at each call of $.theme.set below, in applyColour and in ensureLook.
+// The theme is written out at the one call of $.theme.set below, in drawHex.
 
-// The two things a colour change needs from the engine, so the command and the picker row share one path.
+// The things a colour change needs from the engine, so the command and the picker share one path.
 type Tools = {
   theme: { set: (attributes: ThemeSetArgs) => Promise<ThemeResult>; clear: () => Promise<unknown> }
   store: { set: (key: string, value: unknown) => Promise<void> }
 }
 
-// Sets the colour, remembers it, and says in one sentence what happened. Any colour is accepted.
-async function applyColour($: Tools & StateDollar, hex: string, named: string): Promise<string> {
+// The store key of the folder colours: one entry for each folder that has one, kept between sessions.
+const FOLDERS_STORE_KEY = 'folders'
+
+// What the engine tells about where the session is: the repository it belongs to (a worktree reports its main repository), and its own folder.
+type Where = { session: { repo: () => Promise<{ root: string } | null>; root: () => Promise<string> } }
+
+type Reader = { store: { get: (key: string) => Promise<unknown> } }
+
+// A folder's colour as it is kept: six hex digits, and the two Show switches as they were when it was applied.
+type FolderEntry = { colour: string; background: 'on' | 'off'; row: 'on' | 'off' }
+
+// Whether the session has drawn, and what its window shows: six hex digits, 'off', or undefined while nothing has been drawn yet.
+let isDrawn = false
+let mine: string | undefined
+// The colour drawn last that is not a preview. The Show switch brings it back after the background was turned off.
+let lastHex: string | undefined
+// What the window showed before a pressed colour was drawn on it, so Close can put it back. undefined while no colour is pending.
+let beforePreview: string | undefined
+// What is typed in the picker's field, so the Set button can use it.
+let typedText = ''
+
+// The folder a session belongs to: a git repository with all its worktrees, and outside git the exact folder. The path is taken as the engine gives it.
+// undefined when the engine cannot say, and the session then behaves as it did before folders had colours.
+async function folderKey($: Where): Promise<string | undefined> {
+  try {
+    const repo = await $.session.repo()
+
+    if (repo !== null && typeof repo.root === 'string' && repo.root !== '') {
+      return repo.root
+    }
+    const root = await $.session.root()
+
+    return typeof root === 'string' && root !== '' ? root : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// The last part of a folder's path, as the messages name the folder.
+function folderName(key: string): string {
+  return key.split(/[\\/]+/).filter(part => part !== '').pop() ?? key
+}
+
+// Only a well-formed entry: six hex digits, and each switch on unless it says off.
+function cleanEntry(stored: unknown): FolderEntry | undefined {
+  if (typeof stored !== 'object' || stored === null) {
+    return undefined
+  }
+  const { colour, background, row } = stored as Record<string, unknown>
+
+  if (typeof colour !== 'string' || !HEX.test(colour)) {
+    return undefined
+  }
+
+  return { colour: colour.replace('#', '').toLowerCase(), background: background === 'off' ? 'off' : 'on', row: row === 'off' ? 'off' : 'on' }
+}
+
+// The entries of every folder that has a folder colour, with anything damaged left out.
+async function readFolders($: Reader): Promise<Array<[string, FolderEntry]>> {
+  const stored = await $.store.get(FOLDERS_STORE_KEY)
+
+  if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) {
+    return []
+  }
+
+  return Object.entries(stored).flatMap(([key, value]) => {
+    const entry = cleanEntry(value)
+
+    return entry === undefined ? [] : [[key, entry] as [string, FolderEntry]]
+  })
+}
+
+// The folder colour of the session's folder, or undefined when the folder has none.
+async function readEntry($: Reader & Where): Promise<FolderEntry | undefined> {
+  const key = await folderKey($)
+
+  return key === undefined ? undefined : (await readFolders($)).find(([name]) => name === key)?.[1]
+}
+
+// Writes the entry of one folder. The entries of the other folders are read again just before, so a change made meanwhile in another folder is not undone.
+async function writeEntry($: Reader & Tools, key: string, entry: FolderEntry): Promise<void> {
+  const others = (await readFolders($)).filter(([name]) => name !== key).map(([name, other]) => [name, { colour: `#${other.colour}`, background: other.background, row: other.row }] as const)
+
+  await $.store.set(FOLDERS_STORE_KEY, Object.fromEntries([...others, [key, { colour: `#${entry.colour}`, background: entry.background, row: entry.row }]]))
+}
+
+// An entry written as one string, so a session can tell that the folder changed since it last drew from it.
+function entrySignature(entry: FolderEntry): string {
+  return `${entry.colour}|${entry.background}|${entry.row}`
+}
+
+// Whether the session's folder has a folder colour. In such a folder, what one session chooses is not also kept as the latest choice for new sessions elsewhere.
+async function folderHasColour($: Reader & Where): Promise<boolean> {
+  return (await readEntry($)) !== undefined
+}
+
+// What the person is told about a colour that is hard to read, or nothing.
+function readability(hex: string): string {
   const scheme = schemeFor(hex)
   const main = contrast(scheme === 'light' ? LIGHT_MAIN_TEXT : DARK_MAIN_TEXT, hex)
-  const set = await $.theme.set({
-    backdrop: { scene: `${SCENE_PREFIX}${hex}`, glass: { blur: 8, tint: scheme === 'light' ? '#ffffff' : '#000000', opacity: 0.12 } },
-    overrideColorScheme: scheme,
-  })
-
-  if (!set.isDrawn) {
-    return `Not drawn: ${set.reason}`
-  }
-  isDrawn = true
-  mine = hex
-  await $.store.set(STORE_KEY, `#${hex}`)
-  // Choosing a colour shows the background again, for the sessions that follow too.
-  await $.store.set(BACKGROUND_STORE_KEY, 'on')
-  await update($, BACKGROUND_ON, () => true)
   const faint = contrast(FAINT_TEXT, hex)
   const mainWarning = main < MAIN_TEXT_MIN ? ` The main text is only ${main.toFixed(1)} to 1 on it, which is hard to read. A paler or a deeper colour reads better.` : ''
   const faintWarning = faint < FAINT_TEXT_MIN ? ` The faint grey text is only ${faint.toFixed(1)} to 1 on it, so it may be hard to read.` : ''
 
-  return `Conversation colour set to #${hex}${named}. The window is drawn in ${scheme} mode so the text stays readable.${mainWarning}${faintWarning}`
+  return `${mainWarning}${faintWarning}`
 }
 
-// Whether the colour is drawn in this session yet. At session start the desktop app is often not attached, so the first try can fail.
-let isDrawn = false
-// This session's own colour: six hex digits, or 'off', or undefined while the session has not drawn one yet.
-// A session keeps its own colour. The saved colour in the store, the last one chosen in any session, is only the starting point for a new session.
-let mine: string | undefined
-// The window colour when the picker opened: six hex digits, 'off', or undefined. The background's Reset brings it back.
-let openedWith: string | undefined
-// What is typed in the picker's field, so the Set button can use it.
-let typedText = ''
-
-// The colour the window comes back with when Show is ticked again: the one chosen last, kept between sessions, or the default.
-async function rememberedHex($: { store: { get: (key: string) => Promise<unknown> } }): Promise<string> {
-  const saved = await $.store.get(STORE_KEY)
-
-  return typeof saved === 'string' && HEX.test(saved) ? saved.replace('#', '').toLowerCase() : DEFAULT_HEX
-}
-
-type Engine = Tools & StateDollar & {
+type Engine = Tools & StateDollar & Where & {
   store: Tools['store'] & { get: (key: string) => Promise<unknown> }
-  ui: { status: (text: string | undefined) => void }
+  ui: { status: (text: string | undefined) => void; toast: (text: string) => void }
 }
 
-// Turns the background off in this session and for the sessions that follow. The colour chosen last is kept for when it is shown again.
-// The typed /convo-color off and the picker's Off button share it. It clears the session's theme, whichever mod set it, because the person asked.
-async function turnBackgroundOff($: Tools & StateDollar): Promise<void> {
-  await $.theme.clear()
-  isDrawn = false
-  mine = 'off'
-  await $.store.set(BACKGROUND_STORE_KEY, 'off')
-  await update($, BACKGROUND_ON, () => false)
-}
-
-// Draws the saved colour, or the default one, unless the person turned the colour off. Safe to call again: it does nothing once drawn.
-// It reports back whether the colour is drawn, so a caller can say why not.
-async function ensureLook($: Engine): Promise<ThemeResult | undefined> {
-  if (isDrawn || mine === 'off') {
-    return undefined
-  }
-  // A new session starts as the sessions before it left the background: off, if it was last turned off anywhere. A session keeps its own choice after that.
-  if (mine === undefined && (await $.store.get(BACKGROUND_STORE_KEY)) === 'off') {
-    mine = 'off'
-    await update($, BACKGROUND_ON, () => false)
-
-    return undefined
-  }
-  // The last colour chosen, kept between sessions. Anything that is not six hex digits is ignored.
-  const saved = await $.store.get(STORE_KEY)
-  const hex = mine ?? (typeof saved === 'string' && HEX.test(saved) ? saved.replace('#', '').toLowerCase() : DEFAULT_HEX)
+// Draws a colour in this session's window and nothing else: no value of the session and nothing in the store changes, apart from the colour being shown.
+// A preview is drawn this way, and so is a colour that is applied. A preview is not remembered as the colour that Show brings back.
+async function drawHex($: Tools & StateDollar, hex: string, remember: boolean): Promise<ThemeResult> {
   const scheme = schemeFor(hex)
   const set = await $.theme.set({
     backdrop: { scene: `${SCENE_PREFIX}${hex}`, glass: { blur: 8, tint: scheme === 'light' ? '#ffffff' : '#000000', opacity: 0.12 } },
@@ -586,6 +658,67 @@ async function ensureLook($: Engine): Promise<ThemeResult | undefined> {
   if (set.isDrawn) {
     isDrawn = true
     mine = hex
+    if (remember) {
+      lastHex = hex
+    }
+    await update($, BACKGROUND_ON, () => true)
+  }
+
+  return set
+}
+
+// Takes the colour off this session's window, whichever mod set it, because the person asked. No value of the session and nothing in the store changes.
+async function clearWindow($: Tools & StateDollar): Promise<void> {
+  await $.theme.clear()
+  isDrawn = false
+  mine = 'off'
+  await update($, BACKGROUND_ON, () => false)
+}
+
+// The colour the window comes back with when Show is ticked again: the one drawn last here, or the folder's, or the latest chosen anywhere, or the default.
+async function rememberedHex($: Reader & Where): Promise<string> {
+  if (lastHex !== undefined) {
+    return lastHex
+  }
+  const entry = await readEntry($)
+
+  if (entry !== undefined) {
+    return entry.colour
+  }
+  const saved = await $.store.get(STORE_KEY)
+
+  return typeof saved === 'string' && HEX.test(saved) ? saved.replace('#', '').toLowerCase() : DEFAULT_HEX
+}
+
+// The look a session with no folder colour starts with: the latest background choice, off if it was last turned off anywhere, then the latest colour or the default.
+async function startingLook($: Reader): Promise<string> {
+  if ((await $.store.get(BACKGROUND_STORE_KEY)) === 'off') {
+    return 'off'
+  }
+  const saved = await $.store.get(STORE_KEY)
+
+  return typeof saved === 'string' && HEX.test(saved) ? saved.replace('#', '').toLowerCase() : DEFAULT_HEX
+}
+
+// Puts a look on the window: a colour, or off. It draws only what is not already drawn, unless it is told to draw it again.
+// A session that has drawn from its folder before a reload of the add-on also takes its colour off, though the module has forgotten that it drew.
+async function showLook($: Engine, look: string, force: boolean): Promise<ThemeResult | undefined> {
+  if (look === 'off') {
+    if (isDrawn || (await read($, DRAWN_FROM)) !== null) {
+      await clearWindow($)
+    } else {
+      mine = 'off'
+      await update($, BACKGROUND_ON, () => false)
+    }
+
+    return undefined
+  }
+  if (isDrawn && mine === look && !force) {
+    return undefined
+  }
+  const set = await drawHex($, look, true)
+
+  if (set.isDrawn) {
     $.ui.status(undefined)
   } else {
     // The reason the app gives for not drawing the theme, in the status line. The next try clears it.
@@ -593,6 +726,185 @@ async function ensureLook($: Engine): Promise<ThemeResult | undefined> {
   }
 
   return set
+}
+
+// Draws what the session should show now: its own colour if it has one, else its folder's, else the colour it started with. It is safe to call again, and it
+// is how a session with no colour of its own follows its folder: it is called when the session starts, when the app attaches and at each prompt, never on a timer.
+// A colour pressed in the picker and not applied yet waits: the picker decides what happens to it. fresh forgets the colour the session has now, for Reset.
+async function syncLook($: Engine, force = false, fresh = false): Promise<ThemeResult | undefined> {
+  if (beforePreview !== undefined) {
+    return undefined
+  }
+  const entry = await readEntry($)
+  const own = await read($, OWN)
+  let look: string
+
+  if (own !== null) {
+    look = own
+  } else if (entry !== undefined) {
+    look = entry.background === 'off' ? 'off' : entry.colour
+  } else if (mine !== undefined && !fresh) {
+    look = mine
+  } else {
+    look = await startingLook($)
+  }
+  const result = await showLook($, look, force)
+
+  // The folder's Show model row is taken when the folder changed since the session last drew from it, and never over the session's own choice.
+  if (entry !== undefined) {
+    const signature = entrySignature(entry)
+
+    if ((await read($, DRAWN_FROM)) !== signature) {
+      if ((await read($, OWN_ROW)) === null) {
+        await update($, ROW_ON, () => entry.row !== 'off')
+      }
+      await update($, DRAWN_FROM, () => signature)
+    }
+  }
+
+  return result
+}
+
+// Puts the window back to what it showed before a colour was pressed on it, and drops the pressed colour. It says whether a colour on the window was pending.
+async function dropPreview($: Engine): Promise<boolean> {
+  const base = beforePreview
+
+  beforePreview = undefined
+  await update($, PREVIEW, () => null)
+  if (base === undefined) {
+    return false
+  }
+  await showLook($, base, true)
+
+  return true
+}
+
+// Draws a pressed colour on this session's window, for a look. Nothing is stored, and the session's own colour and Show switches are untouched.
+async function previewColour($: Engine, hex: string, name: string): Promise<void> {
+  const isFirst = beforePreview === undefined
+
+  if (isFirst) {
+    beforePreview = mine ?? 'off'
+  }
+  const set = await drawHex($, hex, false)
+
+  if (!set.isDrawn) {
+    if (isFirst) {
+      beforePreview = undefined
+    }
+    $.ui.toast(`Not drawn: ${set.reason}`)
+
+    return
+  }
+  await update($, PREVIEW, () => ({ hex, name }))
+}
+
+// Makes a colour this session's own, at once. In a folder with no folder colour it is also the latest colour, which a new session starts from, as before folders had colours.
+async function applyOwn($: Engine, hex: string): Promise<ThemeResult> {
+  const set = await drawHex($, hex, true)
+
+  if (!set.isDrawn) {
+    return set
+  }
+  beforePreview = undefined
+  await update($, PREVIEW, () => null)
+  await update($, OWN, () => hex)
+  if (!(await folderHasColour($))) {
+    await $.store.set(STORE_KEY, `#${hex}`)
+    // Choosing a colour shows the background again, for the sessions that start from it.
+    await $.store.set(BACKGROUND_STORE_KEY, 'on')
+  }
+
+  return set
+}
+
+// Sets the colour, makes it this session's own, and says in one sentence what happened. Any colour is accepted. A typed colour and the Show switch use it.
+async function applyColour($: Engine, hex: string, named: string): Promise<string> {
+  const inFolder = await folderHasColour($)
+  const set = await applyOwn($, hex)
+
+  if (!set.isDrawn) {
+    return `Not drawn: ${set.reason}`
+  }
+  const folderNote = inFolder ? ' This session keeps it, and the folder colour is unchanged.' : ''
+
+  return `Conversation colour set to #${hex}${named}. The window is drawn in ${schemeFor(hex)} mode so the text stays readable.${readability(hex)}${folderNote}`
+}
+
+// The colour Apply takes: the one pressed, else the one the window shows now, else the one that Show would bring back.
+async function colourToApply($: Engine): Promise<string> {
+  const preview = await read($, PREVIEW)
+
+  if (preview !== null) {
+    return preview.hex
+  }
+
+  return mine !== undefined && mine !== 'off' ? mine : await rememberedHex($)
+}
+
+// Apply to session: the pressed colour becomes this session's own, and the folder is left alone.
+async function applyToSession($: Engine): Promise<string> {
+  const preview = await read($, PREVIEW)
+
+  if (preview === null) {
+    return 'Nothing to apply yet. Press a colour first.'
+  }
+  const set = await applyOwn($, preview.hex)
+
+  return set.isDrawn ? `Applied to this session only.${readability(preview.hex)}` : `Not drawn: ${set.reason}`
+}
+
+// Apply to folder: the colour is written as the folder's, with the Show switches as they are in this session. Never a global key. A session with its own colour keeps
+// it, and the window goes back to it. A session with none draws the folder colour and follows it from now on.
+async function applyToFolder($: Engine): Promise<string> {
+  const key = await folderKey($)
+
+  if (key === undefined) {
+    return 'The folder of this session is not known, so there is no folder colour to set.'
+  }
+  const hex = await colourToApply($)
+  const entry: FolderEntry = { colour: hex, background: (await read($, BACKGROUND_ON)) ? 'on' : 'off', row: (await read($, ROW_ON)) ? 'on' : 'off' }
+
+  await writeEntry($, key, entry)
+  beforePreview = undefined
+  await update($, PREVIEW, () => null)
+  await syncLook($, true)
+  const own = await read($, OWN)
+  const kept = own === null ? '' : own === 'off' ? ' This session has its background off, so it keeps that.' : ' This session has its own colour, so it keeps it.'
+
+  return `Applied to the folder ${folderName(key)}. Open sessions here without a colour of their own follow at their next message, and new sessions start with it.${kept}${readability(hex)}`
+}
+
+// Reset: drops the pressed colour and makes the session follow its folder again, so it loses its own colour and its own Show choice for the model row.
+// In a folder with no folder colour it follows the latest colour, as a new session does.
+async function resetToFolder($: Engine): Promise<string> {
+  beforePreview = undefined
+  await update($, PREVIEW, () => null)
+  await update($, OWN, () => null)
+  await update($, OWN_ROW, () => null)
+  await update($, DRAWN_FROM, () => null)
+  await syncLook($, true, true)
+  if ((await readEntry($)) !== undefined) {
+    return 'This session follows the folder colour again.'
+  }
+  const rowSetting = await $.store.get(ROW_STORE_KEY)
+
+  await update($, ROW_ON, () => rowSetting !== 'off')
+
+  return 'This session starts from the latest colour again. This folder has no folder colour yet.'
+}
+
+// Turns the background off in this session. The colour it had is kept for when it is shown again, and so is the folder's. It is the session's own choice, and it
+// clears the session's theme, whichever mod set it, because the person asked. In a folder with no folder colour it is also kept for new sessions, as before folders had colours.
+// The typed /convo-color off and the picker's Show switch share it.
+async function turnBackgroundOff($: Engine): Promise<void> {
+  beforePreview = undefined
+  await update($, PREVIEW, () => null)
+  await clearWindow($)
+  await update($, OWN, () => 'off')
+  if (!(await folderHasColour($))) {
+    await $.store.set(BACKGROUND_STORE_KEY, 'off')
+  }
 }
 
 // The model row: one colour per model family, drawn above the prompt box while the window keeps the person's own colour.
@@ -710,10 +1022,14 @@ async function setModelRow($: StateDollar, model: string | undefined): Promise<v
   await update($, MODEL_ROW, () => row)
 }
 
-// Turns the model row on or off, in this session and for the sessions that follow. The command and the picker's button share it.
-async function setRowOn($: StateDollar & { store: Tools['store'] }, isOn: boolean): Promise<void> {
+// Turns the model row on or off at once. It is the session's own choice, which a later change of the folder colour does not overwrite until Reset.
+// In a folder with no folder colour it is also kept for new sessions, as before folders had colours. The command and the picker's Show switch share it.
+async function setRowOn($: StateDollar & Where & Reader & { store: Tools['store'] }, isOn: boolean): Promise<void> {
   await update($, ROW_ON, () => isOn)
-  await $.store.set(ROW_STORE_KEY, isOn ? 'on' : 'off')
+  await update($, OWN_ROW, () => isOn)
+  if (!(await folderHasColour($))) {
+    await $.store.set(ROW_STORE_KEY, isOn ? 'on' : 'off')
+  }
 }
 
 export const register: Register = on => {
@@ -734,13 +1050,17 @@ export const register: Register = on => {
     // A reload runs this again with the session's values kept. A finished or half-finished update row would then say what is no longer true, so it goes.
     await update($, offer, () => null)
 
-    // A first try can fail because no client is attached yet, so it is tried again later. A session turned off stays off.
-    await ensureLook($)
+    // A first try can fail because no client is attached yet, so it is tried again later. The session draws its own colour, else its folder's, else the latest colour.
+    // It is drawn again after a reload, because the module does not remember what it drew.
+    await syncLook($, true)
 
-    // The model row is on unless the person turned it off, and it starts on the model the session uses.
+    // The model row is on unless the person turned it off, and it starts on the model the session uses. A folder colour has its own Show model row, which
+    // syncLook has taken, and a session's own choice is kept. Only a session with neither takes the latest choice.
     const rowSetting = await $.store.get(ROW_STORE_KEY)
 
-    await update($, ROW_ON, () => rowSetting !== 'off')
+    if ((await read($, OWN_ROW)) === null && (await readEntry($)) === undefined) {
+      await update($, ROW_ON, () => rowSetting !== 'off')
+    }
     const storedColours = await $.store.get(ROW_COLOURS_STORE_KEY)
 
     await update($, ROW_COLOURS, () => cleanColours(storedColours))
@@ -749,18 +1069,19 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // The desktop app joins after the session starts, so the saved colour is tried again when it attaches and at every prompt.
+  // The desktop app joins after the session starts, so the colour is tried again when it attaches and at every prompt. This is also where a session with no colour
+  // of its own learns that its folder colour changed. There is no timer, so a session that is idle in the sidebar changes only when it attaches or gets a message.
   on('session.attach', async ($, e, next) => {
     const result = await next(e)
 
-    await ensureLook($)
+    await syncLook($)
     await ensureUpdateCheck($)
 
     return result
   })
 
   on('prompt.submit', async ($, e, next) => {
-    await ensureLook($)
+    await syncLook($)
     await ensureUpdateCheck($)
 
     return next(e)
@@ -770,27 +1091,35 @@ export const register: Register = on => {
     const typed = e.args.trim()
 
     if (typed.toLowerCase() === 'off') {
+      const inFolder = await folderHasColour($)
+
       await turnBackgroundOff($)
 
-      return { text: 'Conversation colour is off, here and for new sessions. The colour you chose is kept. Type /convo-color followed by a colour to bring it back.' }
+      return {
+        text: inFolder
+          ? 'Conversation colour is off in this session only. The folder keeps its colour, and so do the other sessions. Type /convo-color followed by a colour to bring it back.'
+          : 'Conversation colour is off, here and for new sessions. The colour you chose is kept. Type /convo-color followed by a colour to bring it back.',
+      }
     }
     if (typed.toLowerCase() === 'update') {
       return { text: (await checkForUpdate($)).text }
     }
     if (typed.toLowerCase() === 'row on' || typed.toLowerCase() === 'row off') {
       const isOn = typed.toLowerCase() === 'row on'
+      const inFolder = await folderHasColour($)
 
       await setRowOn($, isOn)
+      const only = inFolder ? ' This is this session only. The folder keeps its setting.' : ''
 
-      return { text: isOn ? 'The model row is on. It shows the model family above the prompt box, in its own medium colour.' : 'The model row is off. Type /convo-color row on to show it again.' }
+      return { text: `${isOn ? 'The model row is on. It shows the model family above the prompt box, in its own medium colour.' : 'The model row is off. Type /convo-color row on to show it again.'}${only}` }
     }
     if (typed === '') {
-      openedWith = mine
+      await dropPreview($)
       typedText = ''
       await update($, SET_CHOICE, () => null)
       await update($, picking, () => true)
 
-      return { text: 'Pick a colour in the panel above the prompt box. Choose Background to colour the conversation, or LLM model to colour the model row. The panel stays open so you can try several, until you press Close. You can also type six hex digits or a colour name.' }
+      return { text: 'Pick a colour in the panel above the prompt box. A press only shows it. Apply to session keeps it for this session, and Apply to folder makes it the colour of this folder. Choose LLM bar color to colour the model row instead. The panel stays open so you can try several, until you press Close, which drops a colour that was not applied. You can also type six hex digits or a colour name, which applies at once to this session.' }
     }
     const hex = parseColour(typed)
 
@@ -808,12 +1137,12 @@ export const register: Register = on => {
     return { text: await applyColour($, hex, HEX.test(typed) ? '' : ` (${typed})`) }
   })
 
-  // The picker above the prompt box, in a wide layout. On the left stand the controls: a Light mode and a
-  // Dark mode button choosing the set of colours, then two lines each with a radio-style button (Background, LLM model), its Show
-  // button and its Reset, then the text field with Set. In the middle stands the grid of the chosen set, in lines of 26. On the right stand
-  // Close, Help and the version. The real model row stands under the panel, so a press shows on it at once.
-  // A press on a colour leaves the picker open, so the person can try several. Only Close closes it.
-  // The text field takes six hex digits, with or without a #, or a web colour name.
+  // The picker above the prompt box, in a compact layout. On the left stand the controls: a Light mode and a Dark mode button choosing the set of colours, then
+  // two lines each with a radio-style button (Session color, LLM bar color), its Show switch and its Reset, then the text field with Set, a line saying what the
+  // session's colour is, and one line of buttons: Apply to session, Apply to folder and Close in the Session color mode, Apply and Close in the LLM bar color mode.
+  // To the right stands the grid of the chosen set, and under it Help and the version. The real model row stands under the panel, so a press shows on it at once.
+  // A press on a colour is only a preview, shown in this session and kept nowhere. Apply keeps it, and Close without Apply puts the session back as it was.
+  // The Show switches act at once. The text field takes six hex digits, with or without a #, or a web colour name, and applies at once.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const isPicking = await read($, picking)
     const found = await read($, offer)
@@ -847,10 +1176,18 @@ export const register: Register = on => {
     const { Box, Button, Input, Link, Text } = $.ui.resolve(e)
     const rowOn = await read($, ROW_ON)
     const backgroundOn = await read($, BACKGROUND_ON)
+    const preview = await read($, PREVIEW)
+    const own = await read($, OWN)
+    const entry = await readEntry($)
     // The picker colours the row only while the model is known. Otherwise it colours the window.
     const rowTarget = (await read($, TARGET)) === 'row' ? modelRow : null
     const onRow = rowTarget !== null
+    // A colour pressed for the row shows on the real row at once, without being kept.
+    const shownColours = rowTarget !== null && preview !== null ? { ...colours, [rowTarget.family]: preview.hex } : colours
     const close = async () => {
+      if (await dropPreview($)) {
+        $.ui.toast('Back to the colour this session had.')
+      }
       await update($, picking, () => false)
       await update($, TARGET, () => 'window' as const)
       await update($, SET_CHOICE, () => null)
@@ -877,8 +1214,8 @@ export const register: Register = on => {
       return <Box flexDirection="column">{updateRow}</Box>
     }
 
-    // A colour for the row of the model in use. The row is switched on if it was off, so the press has something to show.
-    const colourRow = async (hex: string, name: string) => {
+    // A colour for the row of the model in use, kept for every session and every folder. The row is switched on if it was off, so the press has something to show.
+    const applyRow = async (hex: string, name: string) => {
       if (modelRow === null) {
         return
       }
@@ -886,13 +1223,15 @@ export const register: Register = on => {
       const warning = best < ROW_TEXT_WARN ? ` The text on it is only ${best.toFixed(1)} to 1, which is hard to read.` : ''
 
       await setRowColour($, modelRow.family, hex)
+      await update($, PREVIEW, () => null)
       if (!rowOn) {
         await setRowOn($, true)
       }
-      $.ui.toast(`The ${modelRow.label} row is now #${hex}${name}.${warning}`)
+      $.ui.toast(`The ${modelRow.label} row is now #${hex}${name}. It is the same in every session and every folder.${warning}`)
     }
 
-    // Enter in the text field, and the Set button, set the colour that was typed and leave the picker open, as a press on a colour does.
+    // Enter in the text field, and the Set button, apply the colour that was typed at once and leave the picker open: to this session as its own colour,
+    // or to the row of the model in use, as the picker's target says.
     const enter = async (value: string) => {
       const typed = value.trim()
 
@@ -907,7 +1246,7 @@ export const register: Register = on => {
         return
       }
       if (rowTarget !== null) {
-        await colourRow(hex, HEX.test(typed) ? '' : ` (${typed})`)
+        await applyRow(hex, HEX.test(typed) ? '' : ` (${typed})`)
 
         return
       }
@@ -917,17 +1256,17 @@ export const register: Register = on => {
     // The set the grid shows: the person's choice, or the set of the colour being edited. The window colour is the one the window has,
     // or the one it would come back with when it is off. A row colour is in the set the app's own test puts it in.
     const windowHex = mine !== undefined && mine !== 'off' ? mine : await rememberedHex($)
-    const editedLight = schemeFor(rowTarget === null ? windowHex : shownRow(rowTarget, colours).tint.slice(1)) === 'light'
+    const editedLight = schemeFor(rowTarget === null ? windowHex : shownRow(rowTarget, shownColours).tint.slice(1)) === 'light'
     const setShown = (await read($, SET_CHOICE)) ?? (editedLight ? 'light' : 'dark')
     const lines = setLines(setShown)
 
     // One button per colour, with no name on it: a swatch. A button cannot take a colour itself and draws no colour put
     // inside it, but it lets what lies beneath it show through (seen in the desktop app). So the
-    // button stands on a box of the colour, and its label is blank room. The colour's name is in the message a press shows.
+    // button stands on a box of the colour, and its label is blank room. The colour's name is in the line under the field.
     // The desktop app draws its button as a grey film of about 30 by 31 pixels, on a line that is 22 pixels tall
-    // (measured in screenshots). So the colour box is a square of one line's height that cuts off whatever
-    // sticks out of it, and the button stands in its middle. The film then covers the whole square evenly.
-    // A press colours the row of the model in use while the picker edits the row, and the window otherwise.
+    // (measured in screenshots). So the colour box is one line high, 22 pixels, and cuts off whatever
+    // sticks out of it, and the button stands in its middle. The film then covers the whole patch evenly.
+    // A press only previews: on the window of this session, or on the row of the model in use while the picker edits the row.
     // The keys come from the names, since two of Tailwind's greys share a value (Zinc 50, Neutral 50 and Mauve 50, and Stone 950 and Taupe 950).
     const swatch = ([hex, name]: readonly [string, string]) => (
       <Box key={`swatch-${slug(name)}`} backgroundColor={`#${hex}`} width={SWATCH_WIDTH} flexGrow={1} overflow="hidden" justifyContent="center">
@@ -936,9 +1275,9 @@ export const register: Register = on => {
           label={SWATCH_ROOM}
           onPress={async () => {
             if (onRow) {
-              await colourRow(hex, ` (${name})`)
+              await update($, PREVIEW, () => ({ hex, name }))
             } else {
-              $.ui.toast(await applyColour($, hex, ` (${name})`))
+              await previewColour($, hex, name)
             }
           }}
         />
@@ -955,94 +1294,178 @@ export const register: Register = on => {
     const show = (key: string, isOn: boolean, press: () => unknown) => (
       <Button key={key} label={padLabel(`${isOn ? '☑' : '☐'} Show`, SHOW_LENGTH)} onPress={press} />
     )
+    // Changing what the picker colours drops a colour that was pressed and not applied.
+    const choose = (target: 'window' | 'row') => async () => {
+      if (await dropPreview($)) {
+        $.ui.toast('Back to the colour this session had.')
+      }
+      await update($, TARGET, () => target)
+      await update($, SET_CHOICE, () => null)
+    }
+
+    // The one line under the field: what the pressed colour is, or what the session's colour is.
+    const caption = (() => {
+      if (preview !== null) {
+        return `Preview: ${preview.name} (#${preview.hex}). Not applied yet.`
+      }
+      if (onRow) {
+        return 'Model row colours are global, not per folder.'
+      }
+      if (own === 'off') {
+        return 'This session has its background off.'
+      }
+      if (own !== null) {
+        return `This session has its own colour #${own}.`
+      }
+
+      return entry === undefined ? 'No folder colour here yet. Apply to folder sets one.' : 'This session follows the folder colour.'
+    })()
+
+    // Side by side, the line under the field stands under the colours, above Help, in the column of the colours, which is shorter than the controls and has the room. When the colours
+    // drop under the controls, the line stays under the field, where it belongs to what it says something about.
+    const sideBySide = e.props.bodyColumns >= SIDE_BY_SIDE_FROM
+    const captionBox = (
+      <Box key="caption-box" width={sideBySide ? LINE_WIDTH : COLUMN_ONE + COLUMN_TWO + COLUMN_THREE} marginTop={sideBySide ? 'sm' : undefined}>
+        <Text key="caption" size="caption">
+          {caption}
+        </Text>
+      </Box>
+    )
+
+    const closeButton = <Button key="close" label="Close" variant="primary" role="dismiss" onPress={close} />
 
     return (
       <Box flexDirection="column">
         {updateRow === null ? null : <Box marginBottom="sm">{updateRow}</Box>}
-        <Box columnGap={0.5} rowGap="sm" alignItems="flex-start" flexWrap="wrap">
-          <Box key="controls" flexDirection="column" rowGap="md">
-            <Box key="sets">
-              {column(COLUMN_ONE, radio('set-light', setShown === 'light', 'Light mode', () => update($, SET_CHOICE, () => 'light' as const), LIGHT_LENGTH))}
-              {column(COLUMN_TWO + COLUMN_THREE, radio('set-dark', setShown === 'dark', 'Dark mode', () => update($, SET_CHOICE, () => 'dark' as const), DARK_LENGTH))}
-            </Box>
-            <Box key="line-background">
-              {column(COLUMN_ONE, radio('target-window', !onRow, 'Background', async () => {
-                await update($, TARGET, () => 'window' as const)
-                await update($, SET_CHOICE, () => null)
-              }, RADIO_LENGTH, BACKGROUND_FINE))}
-              {column(COLUMN_TWO, show('show-window', backgroundOn, async () => {
-                if (backgroundOn) {
-                  await turnBackgroundOff($)
-                  $.ui.toast('The background colour is off, here and for new sessions.')
+        <Box columnGap={0.5} rowGap="sm" alignItems="stretch" flexWrap="wrap">
+          <Box key="controls" flexDirection="column" rowGap="md" justifyContent="space-between">
+            <Box key="fields" flexDirection="column" rowGap="md">
+              <Box key="sets">
+                {column(COLUMN_ONE, radio('set-light', setShown === 'light', 'Light mode', () => update($, SET_CHOICE, () => 'light' as const), LIGHT_LENGTH, LIGHT_FINE))}
+                {column(COLUMN_TWO + COLUMN_THREE, radio('set-dark', setShown === 'dark', 'Dark mode', () => update($, SET_CHOICE, () => 'dark' as const), DARK_LENGTH))}
+              </Box>
+              <Box key="line-background">
+                {column(COLUMN_ONE, radio('target-window', !onRow, 'Session color', choose('window'), RADIO_LENGTH, BACKGROUND_FINE))}
+                {column(COLUMN_TWO, show('show-window', backgroundOn, async () => {
+                  if (backgroundOn) {
+                    const inFolder = await folderHasColour($)
 
-                  return
-                }
-                $.ui.toast(await applyColour($, await rememberedHex($), ''))
-              }))}
-              {column(COLUMN_THREE, <Button
-                key="reset-window"
-                label={padLabel('Reset', RESET_LENGTH)}
-                onPress={async () => {
-                  // The colour the window had when the picker opened, or off if it was off then.
-                  if (openedWith === 'off') {
                     await turnBackgroundOff($)
-                    $.ui.toast('The background is off again, as it was when the picker opened.')
+                    $.ui.toast(inFolder ? 'The background colour is off in this session only. The folder keeps its colour.' : 'The background colour is off, here and for new sessions.')
 
                     return
                   }
-                  $.ui.toast(await applyColour($, openedWith ?? DEFAULT_HEX, ''))
-                }}
-              />)}
-            </Box>
-            {modelRow === null ? null : (
-              <Box key="line-model">
-                {column(COLUMN_ONE, radio('target-row', onRow, 'LLM model', async () => {
-                  await update($, TARGET, () => 'row' as const)
-                  await update($, SET_CHOICE, () => null)
-                }, RADIO_LENGTH, MODEL_FINE))}
-                {column(COLUMN_TWO, show('show-row', rowOn, async () => {
-                  await setRowOn($, !rowOn)
-                  $.ui.toast(rowOn ? 'The model row is off.' : 'The model row is on.')
+                  $.ui.toast(await applyColour($, await rememberedHex($), ''))
                 }))}
                 {column(COLUMN_THREE, <Button
-                  key="reset-row"
+                  key="reset-window"
                   label={padLabel('Reset', RESET_LENGTH)}
                   onPress={async () => {
-                    await setRowColour($, modelRow.family, null)
-                    $.ui.toast(`The ${modelRow.label} row has its own colour again.`)
+                    $.ui.toast(await resetToFolder($))
                   }}
                 />)}
               </Box>
-            )}
-            {/* The field's own button is Set: it is the app's submit button, so a press on it does what Enter does.
-                Its label is padded to the width of Reset. */}
-            <Input
-              key="typed"
-              placeholder="Hex code or name"
-              submitLabel={padLabel('Set', SET_LENGTH)}
-              onInput={value => {
-                typedText = value
-              }}
-              onSubmit={enter}
-            />
-            {/* Close as the app's main button, where the way out of a dialog is looked for, with Help and the version to its right,
-                under the controls, where the grid leaves room. A button cannot open a web page, so Help is a link. */}
-            <Box key="foot" columnGap={2} alignItems="center">
-              <Button key="close" label="Close" variant="primary" role="dismiss" onPress={close} />
-              <Link href={HELP_URL} label="Convo Color Help" />
-              <Text size="caption">v{INSTALLED_VERSION}</Text>
+              {modelRow === null ? null : (
+                <Box key="line-model">
+                  {column(COLUMN_ONE, radio('target-row', onRow, 'LLM bar color', choose('row'), RADIO_LENGTH, MODEL_FINE))}
+                  {column(COLUMN_TWO, show('show-row', rowOn, async () => {
+                    if (onRow) {
+                      await update($, PREVIEW, () => null)
+                    }
+                    await setRowOn($, !rowOn)
+                    $.ui.toast(
+                      (await folderHasColour($))
+                        ? `The model row is ${rowOn ? 'off' : 'on'} in this session only. The folder keeps its setting.`
+                        : `The model row is ${rowOn ? 'off' : 'on'}.`,
+                    )
+                  }))}
+                  {column(COLUMN_THREE, <Button
+                    key="reset-row"
+                    label={padLabel('Reset', RESET_LENGTH)}
+                    onPress={async () => {
+                      await update($, PREVIEW, () => null)
+                      await setRowColour($, modelRow.family, null)
+                      $.ui.toast(`The ${modelRow.label} row has its own colour again.`)
+                    }}
+                  />)}
+                </Box>
+              )}
+              {/* The field's own button is Set: it is the app's submit button, so a press on it does what Enter does.
+                  Its label is padded to the width of Reset. */}
+              <Input
+                key="typed"
+                placeholder="Hex code or name"
+                submitLabel={centreLabel('Set', SET_LENGTH, SET_EXTRA_HAIRS)}
+                onInput={value => {
+                  typedText = value
+                }}
+                onSubmit={enter}
+              />
+              {sideBySide ? null : captionBox}
+            </Box>
+            {/* The buttons that keep or leave the pressed colour, in one line, as the app's main buttons, where the way out of a dialog is looked for.
+                A button has no width setting, so the line may wrap in a narrow conversation. */}
+            <Box key="actions" columnGap={0.5} rowGap="sm" flexWrap="wrap" alignItems="center">
+              {onRow ? (
+                <Button
+                  key="apply"
+                  label="Apply"
+                  variant="primary"
+                  onPress={async () => {
+                    if (preview === null) {
+                      $.ui.toast('Press a colour first, then press Apply.')
+
+                      return
+                    }
+                    await applyRow(preview.hex, ` (${preview.name})`)
+                  }}
+                />
+              ) : (
+                <Button
+                  key="apply-session"
+                  label="Apply to session"
+                  variant="primary"
+                  onPress={async () => {
+                    $.ui.toast(await applyToSession($))
+                  }}
+                />
+              )}
+              {onRow ? null : (
+                <Button
+                  key="apply-folder"
+                  label="Apply to folder"
+                  variant="primary"
+                  onPress={async () => {
+                    $.ui.toast(await applyToFolder($))
+                  }}
+                />
+              )}
+              {sideBySide ? null : closeButton}
             </Box>
           </Box>
-          <Box key="grid" flexDirection="column">
-            {lines.map((line, number) => (
-              <Box key={`line-${number}`} width={LINE_WIDTH}>
-                {line.map(swatch)}
-              </Box>
-            ))}
+          <Box key="grid" flexDirection="column" justifyContent="space-between" rowGap={sideBySide ? undefined : 'sm'}>
+            <Box key="picture" flexDirection="column" flexShrink={0}>
+              {lines.map((line, number) => (
+                <Box key={`line-${number}`} width={LINE_WIDTH}>
+                  {line.map(swatch)}
+                </Box>
+              ))}
+              {/* Side by side, the line about the pressed colour stands right under the colours. */}
+              {sideBySide ? captionBox : null}
+            </Box>
+            {/* Side by side, a blank line of its own, one text line high, stands above the bottom line. A gap setting did not draw one in the app. */}
+            {sideBySide ? <Box key="room" height={1} flexShrink={0} /> : null}
+            {/* The version, Help and, side by side, Close, in one line under the colours. Side by side, the line is the one of the Apply buttons, at the right edge of
+                the colours, with a blank line above it for the line about the colour. Narrow, Close stays in the Apply line. Help is a link, which the app draws and opens. */}
+            <Box key="foot" columnGap={1} alignItems="center" justifyContent={sideBySide ? 'flex-end' : 'flex-start'}>
+              <Text size="caption">v{INSTALLED_VERSION}</Text>
+              <Link key="help" href={HELP_URL} label="Help" />
+              {sideBySide ? closeButton : null}
+            </Box>
           </Box>
         </Box>
-        {/* The real model row, under the panel, when it is on. A press on a colour of the row shows on it at once. */}
-        {modelRow === null || !rowOn ? null : <Box marginTop="sm">{rowView(shownRow(modelRow, colours))}</Box>}
+        {/* The real model row, under the panel, when it is on or when a colour was pressed for it. A press on a colour of the row shows on it at once. */}
+        {modelRow === null || (!rowOn && !(onRow && preview !== null)) ? null : <Box marginTop="sm">{rowView(shownRow(modelRow, shownColours))}</Box>}
       </Box>
     )
   })

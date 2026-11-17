@@ -118,7 +118,7 @@ test('with an offer waiting, the picker opens only after Not now', async ($, on)
   await ui.unmount()
 })
 
-test('a press on a swatch sets that colour and leaves the picker open, and only Close closes it', async ($, on) => {
+test('a press on a swatch only previews that colour and leaves the picker open, and only Close closes it', async ($, on) => {
   const scenes: string[] = []
 
   on('session.attach', () => ({ clientId: 'c1' }))
@@ -141,14 +141,14 @@ test('a press on a swatch sets that colour and leaves the picker open, and only 
   const ui = await $.ui.mount({ ...ABOVE_PROMPT, surface: 'desktop' })
 
   expect((await waitFor(() => ui.find({ type: 'Button', key: 'close' })))?.props.label).toBe('Close')
-  // The key of a swatch's button is the colour's name in lower case with a hyphen: Red 300 here, then Orange 300.
+  // The key of a swatch's button is the colour's name in lower case with a hyphen: Red 300 here, then Orange 300. A press only previews the colour.
   await ui.press({ key: 'red-300' })
   expect(scenes.at(-1)).toBe('convo-ffa2a2')
   // The picker stays open, so a second colour can be tried at once.
   expect(await ui.find({ type: 'Button', key: 'close' })).toBeDefined()
   await ui.press({ key: 'orange-300' })
   expect(scenes.at(-1)).toBe('convo-ffb86a')
-  // The text field takes a web colour name, or hex digits with or without a #, and leaves the picker open.
+  // The text field takes a web colour name, or hex digits with or without a #, applies it at once and leaves the picker open.
   await ui.input({ key: 'typed', text: 'light pink' })
   expect(scenes.at(-1)).toBe('convo-ffb6c1')
   await ui.input({ key: 'typed', text: '#2B2B2B' })
@@ -176,23 +176,29 @@ test('a press on a swatch sets that colour and leaves the picker open, and only 
   // There is no header and no Off button any more: Show is the switch.
   expect(await ui.find({ type: 'Text', text: /Claude Convo Color/ })).toBeUndefined()
   expect(await ui.find({ type: 'Button', key: 'off' })).toBeUndefined()
-  // Close, Help and the version stand in one line under the controls, in that order.
+  // Help and the version stand in one line under the grid, in that order. The buttons that apply the colour and Close stand in one line under the controls.
   expect((await ui.find({ type: 'Box', key: 'foot' }))?.props.alignItems).toBe('center')
-  expect((await ui.find({ type: 'Box', key: 'foot' }))?.props.columnGap).toBe(2)
-  // The controls stand in three columns of fixed width (15.6, 9.25 and 9 cells), so the buttons line up whatever their own widths: the radio
+  expect((await ui.find({ type: 'Box', key: 'foot' }))?.props.columnGap).toBe(1)
+  // The controls stand in three columns of fixed width (16, 9.25 and 9 cells), so the buttons line up whatever their own widths: the radio
   // buttons in the first, Show in the second, Reset and Set in the third, and Dark mode over the second and third together. The field has no box
   // of its own now (it stands flush left under the buttons), and a line of the grid is 34 cells, five lines in the dark set.
   const widths = (await ui.findAll({ type: 'Box' })).map(box => box.props.width)
   const count = (width: number) => widths.filter(value => value === width).length
 
-  expect([count(15.6), count(9.25), count(9), count(18.25), count(35), count(34)]).toEqual([2, 1, 1, 1, 0, 5])
-  // The padded labels are what line the buttons up (a button takes the width of its text): Light mode 14, Dark mode 18, Background 13 and one hair space,
-  // (LLM model 13 and two, checked in the row tests), Show 6, Reset 7 and the field's Set 8, so that the three radio buttons are as wide as each other and Dark mode and Set
+  expect([count(16), count(9.25), count(9), count(18.25), count(35), count(34)]).toEqual([2, 1, 1, 1, 0, 5])
+  // The padded labels are what line the buttons up (a button takes the width of its text): Light mode 14 and one hair space, Dark mode 18, Session color 15 and one hair space,
+  // (LLM bar color 15, with no padding, checked in the row tests; the hair spaces measured from a screenshot of the desktop app), Show 6, Reset 7 and the field's Set 8, so that the three radio buttons are as wide as each other and Dark mode and Set
   // end where Reset ends.
   const lengths = async (key: string) => String((await ui.find({ type: 'Button', key }))?.props.label).length
 
-  expect([await lengths('set-light'), await lengths('set-dark'), await lengths('target-window'), await lengths('show-window'), await lengths('reset-window')]).toEqual([14, 17, 14, 6, 7])
-  expect(String((await ui.find({ type: 'Input', key: 'typed' }))?.props.submitLabel).length).toBe(8)
+  expect([await lengths('set-light'), await lengths('set-dark'), await lengths('target-window'), await lengths('show-window'), await lengths('reset-window')]).toEqual([15, 17, 16, 6, 7])
+  // The Set label stands in the middle of its button: as much room on each side, to within one hair space, and as much room in all as the 8 half-wide spaces that make it as wide as Reset.
+  const set = String((await ui.find({ type: 'Input', key: 'typed' }))?.props.submitLabel)
+  const room = (text: string) => [...text].reduce((sum, ch) => sum + (ch === '\u2002' ? 12 : 1), 0)
+  const [before, after] = set.split('Set')
+
+  expect(Math.abs(room(before) - room(after))).toBeLessThanOrEqual(1)
+  expect(room(before) + room(after)).toBe(59)
   const version = await ui.find({ type: 'Text', text: /^v\d+\.\d+\.\d+$/ })
 
   expect(version?.props.size).toBe('caption')
@@ -203,13 +209,53 @@ test('a press on a swatch sets that colour and leaves the picker open, and only 
   expect((await ui.find({ type: 'Input', key: 'typed' }))?.props.placeholder).toBe('Hex code or name')
   expect(String((await ui.find({ type: 'Input', key: 'typed' }))?.props.submitLabel).trim()).toBe('Set')
   expect(await ui.find({ type: 'Button', key: 'set' })).toBeUndefined()
-  // The help link, named "Convo Color Help", opens the project's page on GitHub, which shows the README.
-  expect((await ui.find({ type: 'Link' }))?.props.label).toBe('Convo Color Help')
+  // Help is a plain link, labelled only "Help": the app draws it and opens the project's page on GitHub, which shows the README. It is not a button.
+  expect((await ui.find({ type: 'Link' }))?.props.label).toBe('Help')
   expect((await ui.find({ type: 'Link' }))?.props.href).toBe('https://github.com/paul-van-cotthem/claude-convo-color')
+  expect((await ui.findAll({ type: 'Button' })).map(button => String(button.props.label))).not.toContain('Help')
   // Close is the app's main button.
   expect((await ui.find({ type: 'Button', key: 'close' }))?.props.variant).toBe('primary')
   // Only Close closes it.
   await ui.press({ key: 'close' })
   expect(await ui.find({ type: 'Button', key: 'close' })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('Help is a link, and no press in the picker starts a program', async ($, on) => {
+  const ran: string[] = []
+
+  on('session.attach', () => ({ clientId: 'c1' }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('clock.after', () => ({ value: undefined }))
+  on('theme.set', () => ({ value: { isDrawn: true } }))
+  on('theme.clear', () => ({ value: undefined }))
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('http.fetch', () => ({ value: { ...NEWER, text: '{"name":"convo-color","version":"0.0.1"}' } }))
+  on('process.run', (_, e) => {
+    ran.push(e.argv.join(' '))
+
+    return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
+
+  await $.session.attach({ surface: 'desktop' })
+  await $.command.run({ command: 'convo-color', args: '' })
+
+  const ui = await $.ui.mount({ ...ABOVE_PROMPT, surface: 'desktop', props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 8, bodyColumns: 100 } } as any)
+
+  expect((await waitFor(() => ui.find({ type: 'Link' })))?.props.label).toBe('Help')
+  expect((await ui.find({ type: 'Link' }))?.props.href).toBe('https://github.com/paul-van-cotthem/claude-convo-color')
+  expect(await ui.findAll({ type: 'Link' })).toHaveLength(1)
+  // The line is the version, then Help, then Close.
+  const foot = JSON.stringify(await ui.find({ type: 'Box', key: 'foot' }))
+
+  expect(foot.indexOf('"v')).toBeLessThan(foot.indexOf('"Help"'))
+  expect(foot.indexOf('"Help"')).toBeLessThan(foot.indexOf('"close"'))
+  // Presses on the controls start no program.
+  for (const key of ['red-300', 'set-dark', 'target-window', 'show-window', 'reset-window', 'apply-session', 'apply-folder']) {
+    await ui.press({ key })
+  }
+  expect(ran).toEqual([])
   await ui.unmount()
 })

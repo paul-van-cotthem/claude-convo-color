@@ -1,6 +1,6 @@
 {
   "name": "convo-color",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "/convo-color sets the colour behind the conversation: a hex code, a colour name, or a picker row. Any colour works: a pale one draws the app window light, a deep one draws it dark. A row above the prompt box shows the LLM model in use, in a colour you can change.",
   "author": {
     "name": "Paul Van Cotthem"

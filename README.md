@@ -19,7 +19,7 @@ claude plugin list
 ## What it can do
 
 - **Want your own conversation background colour?** Pick a colour from a light set or a dark set of colours, or type a hex code or a web colour name.
-- **Want to see at a glance which project you are in?** Give each session its own colour. The limits are in *Each session has its own colour*, further down.
+- **Want to see at a glance which project you are in?** Give each folder its own colour with **Apply to folder**. Every session in that folder then shows it. A session can still have a colour of its own, with **Apply to session**. See *Apply to session and Apply to folder*, further down.
 - **Want to see at a glance which model you are using?** A row above the prompt box names the model family, Fable, Opus, Sonnet or Haiku, in a colour of its own. You can turn it off and give each family a colour of your own. See *The model row*, further down.
 
 convo-color sets two things. The first is the colour of the conversation background: the area behind the conversation and the strip behind the prompt box. The second is the model row, a thin row above the prompt box with the name of the model family on a colour of its own. The model row has its own colours and its own on and off. It never changes the conversation background.
@@ -42,6 +42,20 @@ Two other things change with the conversation colour:
 > 2. The Claude Code in your Terminal is version 2.1.292 or later. It is a second copy, separate from the one inside the app. Type `claude --version` to check and `claude update` to update it. If Terminal says `command not found`, Claude Code is not set up on your computer.
 > 3. You will use it in a Local session. Under the prompt box, click the first button on the left and choose an entry under the heading Local. A Cloud or SSH session runs on another machine and does not load it.
 > 4. Right after the install, `/convo-color` does not work yet. Open the Claude desktop app and go to its Code tab, not a normal Claude chat. Start a new session there and make it a Local session, not a Cloud one, as in point 3. Type any short message such as `hi`, send it and wait until Claude starts to answer. From then on `/convo-color` works in that session. Every new session needs this one message first, not only the first session after the install.
+
+## Tips
+
+For people who will not read the whole page:
+
+- **A press on a colour only previews it.** It shows on this session's window and nothing is saved. Press **Apply to session** or **Apply to folder** to keep it, or **Close** to go back. If you have used version 0.6.1: there a press applied the colour at once. See *Apply to session and Apply to folder*.
+- **Colour a whole project:** press a colour, then **Apply to folder**. Every session in that folder shows it. See *Each folder and each session has its own colour*.
+- **Give one session a colour of its own:** press a colour, then **Apply to session**. It keeps it when the folder colour changes. **Reset** next to **Session color** brings it back to the folder colour. See *One session with a colour of its own in a folder that has a colour*.
+- **Sessions that follow the folder** take up a change of the folder colour at their next message, so an idle session catches up when you write in it.
+- **`/convo-color off` and the Show boxes** act on this session only where the folder has a colour. Where it has none, new sessions start with the same choice. See *Each folder and each session has its own colour*.
+- **To leave a folder without a colour,** untick **Show** next to **Session color**, then press **Apply to folder**. No button removes a folder colour.
+- **The model row colours are the same everywhere,** in every session and every folder, and are never set per folder. See *The model row*.
+- **Send one message before `/convo-color`.** A brand-new session does not know the command yet. See *Warning: send one message first*.
+- **After Update now,** the new version is on disk. A session that is already open keeps running the old one until you type `/reload-plugins` in it, and a session you start afterwards uses the new one by itself. That is how it behaves in use, not something tested in this build. See *Updates*.
 
 ## Fast track instructions
 
@@ -67,7 +81,7 @@ Then, in the desktop app:
 
 What to expect:
 
-- Any colour is accepted. Each session keeps its own settings, and a new session starts with the settings you set most recently, in any session. See *Each session has its own colour*, further down.
+- Any colour is accepted. A folder can have a colour that all its sessions follow, and a session can have a colour of its own. Where a folder has no colour, a new session starts with the settings you set most recently in such a folder. See *Each folder and each session has its own colour*, further down.
 - A thin row above the prompt box names the model family in use, such as Opus, on a colour of its own. It follows the model when you change it. It is on from the start. See *The model row*, further down.
 - To keep the text readable, the whole app window is drawn light for a colour brighter than the grey `#737373` (relative luminance 0.17) and dark for a deeper one, whatever the app's own setting is.
 - It works only in the desktop app's Code tab, not in a terminal or a browser.
@@ -80,11 +94,11 @@ Type one of these at the prompt box:
 
 | You type | What happens |
 | :-- | :-- |
-| `/convo-color` | A picker appears above the prompt box. Its colours are the Tailwind CSS palette, in two sets. **Light mode** and **Dark mode** choose the set. The light set has five lines of 17 colours, from pale to medium, and a line of 17 beiges. The dark set has four lines of 17 deep colours and a line of 17 greys. Click a colour to set it. A short message names it. The picker stays open, so you can try several. Two buttons choose what the colours set: **Background**, the conversation background, or **LLM model**, the colour of the model row. Each has a **Show** tick box and its own **Reset**. For any other colour, type a hex code or a web colour name in the field marked **Hex code or name** and press **Set**. **Close**, the link **Convo Color Help** and the installed version stand under the field. **Convo Color Help** opens this page. |
+| `/convo-color` | A picker appears above the prompt box. Its colours are the Tailwind CSS palette, in two sets. **Light mode** and **Dark mode** choose the set. The light set has five lines of 17 colours, from pale to medium, and a line of 17 beiges. The dark set has four lines of 17 deep colours and a line of 17 greys. Click a colour to preview it in this session: nothing is saved and a line names it and says it is not applied yet. The picker stays open, so you can try several. Two buttons choose what the colours set: **Session color**, the conversation background, or **LLM bar color**, the colour of the model row. Each has a **Show** tick box and its own **Reset**. With **Session color** chosen, **Apply to session** keeps the previewed colour in this session only, and **Apply to folder** keeps it for every session in this folder. With **LLM bar color** chosen there is one button, **Apply**. **Close** leaves the picker, and without applying it puts back the colour the session had. For any other colour, type a hex code or a web colour name in the field marked **Hex code or name** and press **Set**. A typed colour applies at once, to this session. Under the colours stand the installed version and **Help**, a link that opens this project's page on GitHub in your web browser. When the conversation is wide enough, the colours stand beside the controls and **Close** stands at the right end of that line. Otherwise the colours stand under the controls and **Close** stands next to the Apply buttons. The next sections say what each button does. |
 | `/convo-color f5eedc` | Sets that colour. Six hex digits, with or without a `#`. |
 | `/convo-color light pink` | Sets a standard web colour name. Capitals, spaces and hyphens do not matter. Only hex codes and standard web colour names can be typed. The names the picker showed before version 0.6.1, such as sage, deep teal or palest blue, no longer work when typed. A colour you saved as a hex code keeps working. |
-| `/convo-color off` | Turns the background colour off and gives you the app's own look back. It is the same as unticking **Show** next to **Background**. There is no **Off** button in the picker any more: **Show** does that job. The colour is remembered, so ticking **Show** again brings it back. It leaves the model row as it is. New sessions then start without the colour too: see *Each session has its own colour*. |
-| `/convo-color row off` | Turns the model row off. It is the same as unticking **Show** next to **LLM model**. |
+| `/convo-color off` | Turns the background colour off in this session and gives you the app's own look back. It is the same as unticking **Show** next to **Session color**. There is no **Off** button in the picker: **Show** does that job. The colour is remembered, so ticking **Show** again brings it back. It leaves the model row as it is. It never changes a folder colour. In a folder with no folder colour, new sessions then start without the colour too: see *Each folder and each session has its own colour*. |
+| `/convo-color row off` | Turns the model row off. It is the same as unticking **Show** next to **LLM bar color**. |
 | `/convo-color row on` | Turns the model row on again. |
 | `/convo-color update` | Looks on GitHub now for a newer version and says what it found. If there is one, a row above the prompt box offers to update. |
 
@@ -92,13 +106,14 @@ Every colour is accepted. A colour that leaves the text hard to read, or the fai
 
 About the picker:
 
-- A swatch looks a little greyer than the colour it sets, because the app draws its own button over it. The colour you get after a click is the true one.
-- Every colour in the light set gives a light window and every colour in the dark set gives a dark window, so the text always reads well on a click.
-- The message after a click gives the colour's hex code and its grid name, such as `#ff6467 (Red 400)`. The grid names are labels only. Typing one does nothing: a typed name is always a web colour name.
+- A swatch looks a little greyer than the colour it sets, because the app draws its own button over it. The colour you get after a click is the true one. For the same reason the outlines of the buttons and of the field are fainter than they should be. The app draws them and the add-on cannot change them.
+- Every colour in the light set gives a light window and every colour in the dark set gives a dark window, so the text always reads well on a preview.
+- The line under the field, or under the colours in a wide conversation, gives the previewed colour's hex code and its grid name, such as `#ff6467 (Red 400)`. The grid names are labels only. Typing one does nothing: a typed name is always a web colour name. When nothing is previewed, the same line says whether this session has a colour of its own, follows its folder, or has no folder colour yet.
 - **Light mode** and **Dark mode** choose which set of colours you see. They do not change the look of the app. The set that opens is the set of the colour you are editing. Nothing about it is remembered.
-- **Background** and **LLM model** choose what the colours and the field set. Both use the same two sets. **LLM model** sets the colour of the model row of the model you use now. See *The model row*.
-- **Reset** next to **Background** brings back the colour the window had when the picker opened, or the app's own look if the colour was off then. **Reset** next to **LLM model** gives the row of the model in use its own colour again.
-- Choosing a colour turns that colour on again if it was off.
+- **Session color** and **LLM bar color** choose what the colours and the field set. Both use the same two sets. **LLM bar color** sets the colour of the model row of the model you use now. See *The model row*.
+- **Reset** next to **Session color** drops a preview and makes this session follow its folder again, so it loses a colour of its own: the folder colour if the folder has one, otherwise the colour new sessions start with. **Reset** next to **LLM bar color** gives the row of the model in use its own colour again. See *What the two Resets do*. The **LLM bar color** line appears once the app has told the add-on which model is in use.
+- Applying a colour, or typing one, turns the background on again if it was off. A press on a colour only previews it.
+- The **Show** tick boxes act at once and are this session's own choice. They never change a folder colour.
 
 ## Step by step
 
@@ -109,17 +124,89 @@ About the picker:
 - It colours the area behind the conversation and the strip behind the prompt box.
 - The sidebar on the left does not take your colour. The add-on gives it a fixed colour: near white (`#fcfcfb`) in a light window and near black (`#151515`) in a dark one. In a light window that is whiter than the sidebar is without the add-on.
 - The text turns dark or pale to stay readable. To do that, the whole app window switches between light and dark: see the section below.
-- Each session keeps its own settings, and a new session starts with the settings you set most recently. See the next section.
+- A folder can have a colour that all its sessions follow, and a session can have a colour of its own. Where a folder has no colour, a new session starts with the settings you set most recently in such a folder. See the next sections.
 - A thin row above the prompt box names the model family in use, on a colour of its own. See *The model row*, after the next section.
 
-### Each session has its own colour
+### Each folder and each session has its own colour
 
-- Every running session keeps its own settings. Choosing a colour repaints only the session you are in.
-- A new session starts with the settings from the most recent time you set them, in any session. That covers the background colour, both **Show** switches, `/convo-color off`, `/convo-color row on` and `row off`, and the colour of each model family's row. They are saved on your computer, so they survive closing the app.
-- Until you pick a colour, new sessions use a light cream, `f5eedc`.
-- Turning the background colour off applies to new sessions too. Before version 0.6.1, `/convo-color off` applied to the session you were in only, and a new session always started with the colour. After `/convo-color off`, or unticking **Show** next to **Background**, in any session, every new session starts without the colour until you tick **Show** again or choose a colour.
-- A session you open again later does not remember its own settings. It starts with the current ones.
-- The model row has one colour per model family, the same in every session. See *The model row*.
+A session takes the first of these that exists:
+
+1. **Its own colour,** if it has one.
+2. **The colour of its folder,** if the folder has one.
+3. **The settings you set most recently in a folder that has no folder colour,** as they are when the session starts.
+4. **The light cream `f5eedc`,** until you have chosen anything.
+
+A folder is a git repository with all its worktrees, or, outside git, the exact folder. The add-on asks the app which repository a session belongs to. A session in a subfolder of a repository was not tried in the app, so do not rely on it counting as that repository. The folder colours are saved on your computer, so they survive closing the app. What a session you open again later shows was not tried. Whether a colour of its own is still there then was not tried either.
+
+- **A session that follows its folder** (it has no colour of its own) takes up a change of the folder colour at its next message. A new session in a folder that has a colour starts with it.
+- **A session's own colour** stays whatever the folder colour becomes. The next section says how to give a session one.
+- **A folder colour is a background colour only.** The colours of the model rows are the same in every session and every folder. See *The model row*.
+- **There is no button or command that removes a folder colour.** To change one, press a colour and **Apply to folder** again. To make a folder show no colour, untick **Show** next to **Session color** and press **Apply to folder**. The folder then keeps a colour that is switched off, and sessions without a colour of their own show the app's own look.
+- **In a folder with no folder colour,** nothing changes from before: a colour you choose is the colour new sessions start with, and **Show** and `/convo-color off` apply to new sessions too.
+
+What **Show**, a typed colour and `off` do:
+
+- **A typed colour, Set, and `/convo-color f5eedc`** apply at once, to this session, as its own colour, and turn the background on if it was off. In a folder with no folder colour the colour is also the one new sessions start with.
+- **Unticking Show next to Session color, and `/convo-color off`,** do the same thing: the background goes off at once and the session keeps that as its own choice. In a folder that has a folder colour, that is this session only. In a folder without one, new sessions start with the background off too, until a colour is chosen.
+- **Ticking Show again** draws the colour this session showed last, or the folder colour, or the latest colour, and makes it this session's own colour. Press **Reset** next to **Session color** to follow the folder again.
+- **Show next to LLM bar color** and `/convo-color row off` or `row on` act at once. In a folder that has a folder colour they change this session only. In a folder without one, new sessions start with the choice. **Apply to folder** saves both **Show** boxes for the folder as they are in the session you press it in.
+
+### Apply to session and Apply to folder
+
+Type `/convo-color` and a picker opens above the prompt box. It holds a grid of colour swatches, and under it the buttons described here. **Session color** must be the chosen button of the two, **Session color** and **LLM bar color**. It is chosen unless you pressed **LLM bar color**.
+
+Pressing a swatch only **previews** the colour. The window of this session shows it at once, and a line under the field says `Preview: ... Not applied yet.` Nothing is saved. You press a swatch as often as you like. Then you decide what the colour is for:
+
+- **Apply to session** makes the previewed colour this session's own colour. No other session changes, and the folder colour does not change. If you have pressed no swatch, nothing happens and a message asks you to press one first. In a folder that has no folder colour, the colour is also the one new sessions start with.
+- **Apply to folder** makes the colour the folder's colour, for every session in that folder. It also saves the two **Show** boxes as they are in this session. A swatch is not required: with no preview, it takes the colour the window shows now. A message names the folder.
+  - If this session has no colour of its own, it shows the folder colour now and follows the folder from then on.
+  - If this session has its own colour, it keeps it, and the message says so.
+  - Other open sessions in the folder that have no colour of their own change at their next message. A new session in the folder starts with the folder colour.
+- **Close** leaves the picker. If a swatch was pressed and not applied, the window goes back to the colour it had.
+- **Set** next to the field marked **Hex code or name** applies a typed colour at once, to this session, as **Apply to session** does, with no preview step. Typing `/convo-color f5eedc` does the same.
+
+**To give a whole folder a colour:**
+
+1. Open a session in that folder. It must be a Local session, and you must have sent one message: see *Warning: send one message first*.
+2. Type `/convo-color`.
+3. Check that **Session color** is the chosen button, and choose **Light mode** or **Dark mode** to pick a set of swatches.
+4. Press a swatch to preview it. Try several if you like.
+5. Press **Apply to folder**. Every session in that folder shows the colour from now on, apart from sessions that have a colour of their own.
+6. Press **Close**.
+
+**To give only one session a colour:** follow the same steps, but press **Apply to session** in step 5.
+
+### One session with a colour of its own in a folder that has a colour
+
+1. In that session, type `/convo-color`.
+2. Press a swatch, or type a hex code or a web colour name in the field and press **Set**.
+3. If you pressed a swatch, press **Apply to session**. A typed colour is already applied.
+
+What to expect from then on:
+
+- The session keeps its colour when the folder colour changes later. Pressing **Apply to folder** in another session does not touch it.
+- The caption under the field says `This session has its own colour` and the hex code. Without a colour of its own it says `This session follows the folder colour`.
+- To bring the session back to the folder colour, press **Reset** next to **Session color**. See the next section.
+- If you untick **Show** next to **Session color**, the background goes off in this session only. The folder keeps its colour. Ticking **Show** again brings back the colour this session had drawn last, or the folder colour if it had drawn none, and makes it this session's own colour. To follow the folder again, press **Reset**.
+- A folder can have a colour for most sessions and still leave one session without any: untick **Show** in that session.
+
+### What the two Resets do
+
+The picker has two **Reset** buttons, one on the line of **Session color** and one on the line of **LLM bar color**. The second line, and its **Reset**, appear only once the app has told the add-on which model the session uses.
+
+**Reset next to Session color** puts this session back on the usual order of colours:
+
+- It drops a colour that was pressed and not applied.
+- It removes this session's own colour, including a background that was switched off in this session, and its own choice for the model row's **Show** box.
+- It then draws what the session would show if it had just started. In a folder that has a folder colour, that is the folder colour, with the folder's **Show** boxes. In a folder with no folder colour, it is the colour and the settings you set most recently, and the light cream if you never chose one.
+- A message says which of the two happened.
+- It never changes the folder colour, a saved colour for a model row, or any other session.
+
+**Reset next to LLM bar color** gives the row of the model in use its own colour again:
+
+- It drops a colour that was pressed for the row and not applied.
+- It removes the colour you chose for that model family, so the row goes back to the colour in the table in *The model row*. That holds in every session and every folder, because the colours of the model rows are the same everywhere.
+- It changes the row of the family in use only, and it leaves the **Show** box of the row and the colour of the window as they are.
 
 ### The model row
 
@@ -139,16 +226,16 @@ The model row is a thin row above the prompt box. It names the model family you 
 
 A Claude family that is not in this table shows its own name, in one of four spare colours: yellow, lime, teal or pink. The same name always gets the same colour. A model whose name holds no Claude family shows `Other model` on grey.
 
-**To turn the row off or on:** type `/convo-color row off` or `/convo-color row on`, or tick or untick **Show** next to **LLM model** in the picker. The choice is kept and new sessions start with it. `/convo-color off` does not turn the row off, because it turns off only the background colour.
+**To turn the row off or on:** type `/convo-color row off` or `/convo-color row on`, or tick or untick **Show** next to **LLM bar color** in the picker. In a folder that has a folder colour, the switch is this session's own choice and the folder keeps its setting. **Reset** next to **Session color** gives the folder's setting back. Elsewhere the choice is kept and new sessions start with it. `/convo-color off` does not turn the row off, because it turns off only the background colour.
 
 **To change the colour of a family's row:**
 
 1. Switch to a model of that family, so the row shows its name. The picker changes the row of the model in use only.
 2. Type `/convo-color` to open the picker. The row stands under it, so you see each change on it.
-3. Press **LLM model**. The colours and the field now set the colour of that row, such as the Opus row.
-4. Press **Light mode** or **Dark mode** to choose a set. Press a colour, or type a hex code or a web colour name in the field and press **Set**. A message names the colour. If the row is off, a press turns it on.
-5. Press **Reset**, on the line of **LLM model**, to give the row its own colour again.
-6. Press **Background** to set the window colour again.
+3. Press **LLM bar color**. The colours and the field now set the colour of that row, such as the Opus row.
+4. Press **Light mode** or **Dark mode** to choose a set. Press a colour to preview it on the row, then press **Apply**. Or type a hex code or a web colour name in the field and press **Set**. A message names the colour. If the row is off, **Apply** turns it on. **Close** without **Apply** drops the preview.
+5. Press **Reset**, on the line of **LLM bar color**, to give the row its own colour again.
+6. Press **Session color** to set the window colour again.
 
 - A colour you choose for a family holds for that family in every session, and it is saved on your computer, so it survives closing the app.
 - Any colour is accepted for a row. The text on it is dark or white, whichever reads better. If even that reaches less than 4.5 to 1, the message after the press says the text is hard to read and the colour is applied all the same.
@@ -237,13 +324,13 @@ claude plugin update convo-color@convo-color
 
 - It draws a colour and a row above the prompt box, and adds the command `/convo-color`. It sets the session's theme, so it replaces the look of any other theme add-on.
 - It reads which model the session uses, as the model's name, such as `claude-opus-5-5`, when the session starts and again each time you change the model, to draw the model row. It keeps the name only for the row and sends it nowhere.
-- It does not read, keep or send what you type or what Claude answers. It hooks the moment you send a prompt only to draw the colour if it is not drawn yet and to try the update check again, and ignores the text.
+- It does not read, keep or send what you type or what Claude answers. It hooks the moment you send a prompt only to draw the colour its folder or session should show, and to try the update check again, and ignores the text.
 - It answers only its own command, `/convo-color`. It reads the words you type after the command, as a hex code, a web colour name, `off`, `update`, `row on` or `row off`, and sees no other command.
-- It keeps four things on your computer: the background colour you chose most recently, whether the background colour is on or off, whether the model row is on or off, and the colours you chose for the model rows, by family name. A new session starts with them.
-- The **Convo Color Help** link in the picker opens this project's page on GitHub, `https://github.com/paul-van-cotthem/claude-convo-color`, in your web browser. It does so only when you click it.
+- It keeps five things on your computer: the background colour you chose most recently, whether the background colour is on or off, whether the model row is on or off, the colours you chose for the model rows, by family name, and, for each folder that has a folder colour, the path of the folder with its colour and its two **Show** settings. A new session starts with them. It reads the path of the session's folder, and of its git repository, to find that entry. None of this leaves your computer.
+- The **Help** link in the picker opens this project's page on GitHub, `https://github.com/paul-van-cotthem/claude-convo-color`, in your web browser. It does so only when you click it.
 - The only thing it sends over the internet is one request to `https://raw.githubusercontent.com/paul-van-cotthem/claude-convo-color/main/.claude-plugin/plugin.json`, once per try, at most three tries per session, to read the newest version number. Typing `/convo-color update` sends one more such request each time. GitHub sees your internet address and nothing else.
 - It starts a program only when you press **Update now**. It then runs one shell, `/bin/sh`, with these fixed commands: `claude plugin marketplace update convo-color` and `claude plugin update convo-color@convo-color`. The shell is there only to add the usual folders where Claude Code lives (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`) to its search path, because the desktop app's own path may lack them.
-- The code is in `hooks/register.tsx` and the tests are in the `tests` folder, in four files: `names.test.tsx`, `row.test.tsx`, `settings.test.tsx` and `update.test.tsx`.
+- The code is in `hooks/register.tsx` and the tests are in the `tests` folder, in five files: `folder.test.tsx`, `names.test.tsx`, `row.test.tsx`, `settings.test.tsx` and `update.test.tsx`.
 
 ### Good to know
 
