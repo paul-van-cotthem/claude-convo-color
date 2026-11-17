@@ -1,4 +1,4 @@
-# Convo Color: plug-in for the Claude desktop app (Code tab) to set the background color per local conversation session. Also, a colored indicator bar above the prompt box shows which LLM-model is in use.
+# Convo Color: plug-in for the Claude desktop app (Code tab) to set the background color per local conversation session or per folder. Also, a colored indicator bar above the prompt box shows which LLM-model is in use.
 
 A small add-on (a mod) for Claude, the AI assistant from Anthropic. It works in the Claude desktop app, in its Code tab. It sets the colour behind your conversation, and it can show which model you are using in a coloured row above the prompt box. It works in the app's light mode, dark mode or system mode. It does nothing in a terminal window or in a web browser. Installing it takes about two minutes. It was built and tried on a Mac.
 
