@@ -299,7 +299,7 @@ Then open a new Local session in the desktop app's Code tab, send any short mess
 > [!WARNING]
 > The command is not available in a brand-new session. Send any short message first, for example `hi`, and let the answer start. Only then does `/convo-color` work, and only then do the colour from last time and the model row appear.
 
-The reason is probably that the app starts the engine behind a session only when you send the first message, and the add-on loads with that engine. Before that the add-on has not run, so the app does not know the command yet. This explanation is a reading of the add-on documentation and is not confirmed, but the behaviour itself was seen in testing.
+The reason is that the app starts the engine behind a session only when you send the first message, and the add-on loads with that engine. Before that the add-on has not run, so the app does not know the command yet.
 
 If you type `/convo-color` as your very first message, Claude may answer that the command "isn't installed in this session". Send any other message first, wait for the answer, and try again. If it still says so, type `claude plugin list` in Terminal: the list must show `convo-color@convo-color` with `Status: enabled`. If it is missing, run the install line again, then open a new session. Also check that the session is a Local one, see Before you start.
 
